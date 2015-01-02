@@ -160,6 +160,4 @@ int main(int argv,char *args[]){
 		v->spinOnce(100);
 		boost::this_thread::sleep(boost::posix_time::microseconds(10000));
 		}
-
-
 	}
