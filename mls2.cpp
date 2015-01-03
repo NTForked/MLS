@@ -32,6 +32,65 @@ class MovingLeastSquaresDeformation{
 private:
 	const pcl::PointCloud<PointT> cloud;
 	const pcl::PointCloud<PointT> control;
+
+	const float eucdist(const PointPCL &a,const PointPCL &b){
+		return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));
+	}
+
+	inline PointPCL E2P(const Matrix &in){
+		return PointPCL(in(0,0),in(1,0),in(2,0));
+	}
+
+	inline Eigen::Matrix<float,3,1> P2E(const PointPCL &in){
+		Eigen::Matrix<float,3,1> out;
+		out<<in.x,in.y,in.z;
+		return out;
+	}
+
+	Matrix PointCloud2Eigen(Ptr cloud){
+		Matrix out(3,cloud->size());
+		int j=0;
+		for(PointCloud::iterator i=cloud->begin();i<cloud->end();i++){
+			Eigen::MatrixXf temp(3,1);
+			temp<<i->x,i->y,i->z;
+			out.col(j++) = temp;
+		}
+		return out;
+	}
+
+	boost::shared_ptr<Visualizer> simpleVis (PointCloud::ConstPtr cloud){
+		boost::shared_ptr<Visualizer> viewer (new Visualizer ("3D Viewer"));
+		viewer->setBackgroundColor (0, 0, 0);
+		viewer->addPointCloud<PointPCL> (cloud, "sample cloud");
+		viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
+		//viewer->addCoordinateSystem (0.1);
+		viewer->initCameraParameters ();
+		return (viewer);
+	}
+
+	tuple<Ptr,Ptr,Ptr> createPlateCloud(float Ra,int rc=100,int ac=100,float X = 0.0,float Y = 0.0,float Z = 0.0){
+		Ptr out(new PointCloud);
+		Ptr center(new PointCloud);
+		Ptr rim(new PointCloud);
+		Vector T(ac,1);
+		T.setLinSpaced(100,0,6.2830);
+		Vector R(rc,1);
+		R.setLinSpaced(rc,0,Ra);
+		for(int t=0;t<T.rows();t++){
+			for(int r=0;r<R.rows();r++){
+				if((r>=0 && r<=3)){
+					center->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
+				}
+				else if(r>R.rows()-7){
+					rim->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
+				}
+				else{
+					out->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
+				}
+			}
+		}
+		return tuple<Ptr,Ptr,Ptr>(out,center,rim);
+	}
 	
 public:
 	MovingLeastSquaresDeformation(const pcl::PointCloud<PointT> &cloud_,const pcl::PointCloud<PointT> &control_){
@@ -41,65 +100,6 @@ public:
 
 	}
 };
-
-const float eucdist(const PointPCL &a,const PointPCL &b){
-	return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));
-	}
-
-inline PointPCL E2P(const Matrix &in){
-	return PointPCL(in(0,0),in(1,0),in(2,0));
-}
-
-inline Eigen::Matrix<float,3,1> P2E(const PointPCL &in){
-	Eigen::Matrix<float,3,1> out;
-	out<<in.x,in.y,in.z;
-	return out;
-}
-
-Matrix PointCloud2Eigen(Ptr cloud){
-	Matrix out(3,cloud->size());
-	int j=0;
-	for(PointCloud::iterator i=cloud->begin();i<cloud->end();i++){
-		Eigen::MatrixXf temp(3,1);
-		temp<<i->x,i->y,i->z;
-		out.col(j++) = temp;
-		}
-	return out;
-	}
-
-boost::shared_ptr<Visualizer> simpleVis (PointCloud::ConstPtr cloud){
-	boost::shared_ptr<Visualizer> viewer (new Visualizer ("3D Viewer"));
-	viewer->setBackgroundColor (0, 0, 0);
-	viewer->addPointCloud<PointPCL> (cloud, "sample cloud");
-	viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
-	//viewer->addCoordinateSystem (0.1);
-	viewer->initCameraParameters ();
-	return (viewer);
-	}
-
-tuple<Ptr,Ptr,Ptr> createPlateCloud(float Ra,int rc=100,int ac=100,float X = 0.0,float Y = 0.0,float Z = 0.0){
-	Ptr out(new PointCloud);
-	Ptr center(new PointCloud);
-	Ptr rim(new PointCloud);
-	Vector T(ac,1);
-	T.setLinSpaced(100,0,6.2830);
-	Vector R(rc,1);
-	R.setLinSpaced(rc,0,Ra);
-	for(int t=0;t<T.rows();t++){
-		for(int r=0;r<R.rows();r++){
-			if((r>=0 && r<=3)){
-				center->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
-				}
-			else if(r>R.rows()-7){
-				rim->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
-				}
-			else{
-				out->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
-			}
-		}
-	}
-	return tuple<Ptr,Ptr,Ptr>(out,center,rim);
-}
 
 int main(int argv,char *args[]){
 	if(argv<2){
