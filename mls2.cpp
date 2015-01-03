@@ -3,6 +3,7 @@
 
 #include<cmath>
 #include<cstdlib>
+#include<cfloat>
 
 #include<Eigen/Dense>
 
@@ -25,6 +26,21 @@ using std::cout;
 using std::endl;
 using boost::tuple;
 using boost::tuples::get;
+
+template<class PointT>
+class MovingLeastSquaresDeformation{
+private:
+	const pcl::PointCloud<PointT> cloud;
+	const pcl::PointCloud<PointT> control;
+	
+public:
+	MovingLeastSquaresDeformation(const pcl::PointCloud<PointT> &cloud_,const pcl::PointCloud<PointT> &control_){
+
+	}
+	void deform(){
+
+	}
+};
 
 const float eucdist(const PointPCL &a,const PointPCL &b){
 	return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));
@@ -77,11 +93,13 @@ tuple<Ptr,Ptr,Ptr> createPlateCloud(float Ra,int rc=100,int ac=100,float X = 0.0
 			else if(r>R.rows()-7){
 				rim->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
 				}
-			out->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
+			else{
+				out->push_back(PointPCL(X+R(r,0)*sin(T(t,0)),Y+R(r,0)*cos(T(t,0)),Z));
 			}
 		}
-	return tuple<Ptr,Ptr,Ptr>(out,center,rim);
 	}
+	return tuple<Ptr,Ptr,Ptr>(out,center,rim);
+}
 
 int main(int argv,char *args[]){
 	if(argv<2){
@@ -105,7 +123,7 @@ int main(int argv,char *args[]){
 	original->insert(original->end(),center->begin(),center->end());
 
 	for(PointCloud::iterator i = center->begin();i < center->end();i++){
-		i->z-=1;
+		i->z-=2;
 		}
 
 	shifted->insert(shifted->end(),rim->begin(),rim->end());
@@ -121,6 +139,7 @@ int main(int argv,char *args[]){
 				w(i,j)=pow(eucdist(cloud->points[i],original->points[j]),-2*alpha);
 			}
 			else{
+				w(i,j)=FLT_MAX;
 				flags[i]=false;
 			}
 		}
@@ -133,7 +152,7 @@ int main(int argv,char *args[]){
 
 	for(int n=0;n<cloud->size();n++){
 		PQt.setZero();
-		if(flags[n]){
+		if(true){
 			for(int i=0;i<original->size();i++){
 				PQt += w(n,i)*P.col(i)*(Q.col(i).transpose());
 			}
@@ -149,7 +168,7 @@ int main(int argv,char *args[]){
 
 			Eigen::JacobiSVD<Matrix> svd(PQt, Eigen::ComputeFullU | Eigen::ComputeFullV);
 			float scaling = svd.singularValues().trace()/(P.transpose()*P).trace();
-			final->push_back(E2P((svd.matrixV()*svd.matrixU().transpose()*(P2E(cloud->points[n])-Pstar)+Qstar)));
+			final->push_back(E2P((svd.matrixV()*svd.matrixU().transpose()*(P2E(cloud->points[n])-Pstar)*scaling/(1-weightSum/100)+Qstar)));
 		}
 	}
 
