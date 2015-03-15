@@ -31,16 +31,10 @@ private:
 		return PointT(in(0,0),in(1,0),in(2,0));
 	}
 
-	inline Eigen::Matrix<float,3,1> P2E(const pcl::PointXYZ &in){
-		Eigen::Matrix<float,3,1> out;
-		out<<in.x,in.y,in.z;
-		return out;
-	}
-
 	Eigen::MatrixXf PointCloud2Eigen(const typename pcl::PointCloud<PointT>::Ptr cloud){
 		Eigen::MatrixXf out(3,cloud->size());
 		int j=0;
-		for(typename pcl::PointCloud<PointT>::iterator i=cloud->begin();i<cloud->end();i++){
+		for(typename pcl::PointCloud<PointT>::iterator i=cloud->begin();i<cloud->end();++i){
 			Eigen::MatrixXf temp(3,1);
 			temp<<i->x,i->y,i->z;
 			out.col(j++) = temp;
@@ -82,7 +76,6 @@ public:
 		Eigen::Matrix3f PQt;
 		Eigen::Vector3f Pstar, Qstar;
 		const Eigen::MatrixXf weightSum = weights.rowwise().sum();
-		Eigen::ArrayXf temp = P;
 
 		for(int n=0;n<cloudSize;n++){
 			//PQt.setZero();
@@ -90,11 +83,10 @@ public:
 			Qstar = (weights.row(n)*Q.transpose()).transpose()/weightSum(n);
 			PQt = ((P.colwise()-Pstar).array().rowwise()*weights.row(n).array())
 				     .matrix()*(Q.colwise()-Qstar).transpose();
-
 			Eigen::JacobiSVD<Eigen::MatrixXf> svd(PQt, Eigen::ComputeFullU | Eigen::ComputeFullV);
-			float scaling = svd.singularValues().trace()/(P.transpose()*P).trace();
+			//float scaling = svd.singularValues().trace()/(P.transpose()*P).trace();
 			final->push_back(E2P((svd.matrixV()*svd.matrixU().transpose()*
-			                  ((cloud->points[n]).getVector3fMap()-Pstar)*scaling*2+Qstar)));
+			                  ((cloud->points[n]).getVector3fMap()-Pstar)+Qstar)));
 			}
 		return final;
 		}
@@ -139,25 +131,24 @@ boost::tuple< pcl::PointCloud<pcl::PointXYZ>::Ptr,pcl::PointCloud<pcl::PointXYZ>
 
 int main(int argv,char *args[]){
 	if(argv<2){
-		std::cerr<<"Usage mls2 alpha"<<endl;
+		std::cerr<<"Usage: $mls2 alpha"<<endl;
 		return 1;
 	}
 	const float alpha = atof(args[1]);
 
 	boost::tuple<pcl::PointCloud<pcl::PointXYZ>::Ptr,pcl::PointCloud<pcl::PointXYZ>::Ptr,
-							  pcl::PointCloud<pcl::PointXYZ>::Ptr> temp =
-								createPlateCloud(5,1000,1000);
+							   pcl::PointCloud<pcl::PointXYZ>::Ptr> temp =
+								createPlateCloud(5,100,100);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = boost::tuples::get<0>(temp);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr center = boost::tuples::get<1>(temp);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr rim = boost::tuples::get<2>(temp);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr original(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr shifted(new pcl::PointCloud<pcl::PointXYZ>);
-	const long cloudSize = cloud->size();
 
 	original->insert(original->end(),rim->begin(),rim->end());
 	original->insert(original->end(),center->begin(),center->end());
 
-	for(pcl::PointCloud<pcl::PointXYZ>::iterator i = center->begin();i < center->end();i++){
+	for(pcl::PointCloud<pcl::PointXYZ>::iterator i = center->begin();i < center->end();++i){
 		i->z-=2;
 	}
 
